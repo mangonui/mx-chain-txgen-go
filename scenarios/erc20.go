@@ -9,7 +9,7 @@ import (
 
 	coreData "github.com/multiversx/mx-chain-core-go/data/transaction"
 
-	"github.com/mangonui/mx-chain-txgen-go/accounts"
+	"github.com/mangonui/mx-chain-txgen-go/shards"
 	"github.com/mangonui/mx-chain-txgen-go/submit"
 )
 
@@ -110,7 +110,10 @@ func (e *ERC20Scenario) deploy(ctx context.Context, req Request, comp *Component
 	if status != "success" && status != "executed" {
 		return nil, fmt.Errorf("erc20 deploy: terminal status %q", status)
 	}
-	scAddress := computeSCAddress(deployer, tx.Nonce)
+	scAddress, err := shards.ComputeContractAddress(deployer.PublicKey, tx.Nonce, comp.Shards.NumShards())
+	if err != nil {
+		return nil, fmt.Errorf("erc20 deploy: derive contract address: %w", err)
+	}
 	return &Result{
 		NumSent: 1,
 		Hashes:  hashes,
@@ -210,16 +213,3 @@ func (e *ERC20Scenario) transfer(ctx context.Context, req Request, comp *Compone
 	return &Result{NumSent: len(hashes), Hashes: hashes}, nil
 }
 
-// computeSCAddress is a placeholder for the deterministic contract-address
-// derivation (sender public key + creation nonce). The proxy/observer can
-// return the same address via /transaction/{hash}/process-status's logs;
-// for the deploy sub-command flow we currently return a marker that the
-// shell driver should overwrite by reading the transaction info.
-//
-// The upstream txgen also relies on the driver script reading the hash
-// response; this stub matches that contract. A future improvement is to
-// implement the exact address derivation locally so the deploy response
-// is self-contained.
-func computeSCAddress(_ *accounts.Account, _ uint64) string {
-	return "DERIVE_FROM_TX_HASH"
-}
