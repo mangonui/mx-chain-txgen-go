@@ -9,6 +9,11 @@
 /accounts.json
 /accounts.pem
 
+# Smoke-test wallet PEMs and pool state — must never be committed
+**/wallet.pem
+**/state-devnet/
+**/state-testnet/
+
 # IDE
 .idea/
 .vscode/

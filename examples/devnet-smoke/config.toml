@@ -1,0 +1,69 @@
+# Tier-1 wiring-smoke config for the public MultiversX devnet.
+#
+# DO NOT use this configuration for sustained load testing — the public
+# devnet gateway is rate-limited shared infrastructure. This config is
+# scoped to a single 10-tx batch so the runtime impact is invisible.
+#
+# Pre-flight checklist (see README.md in this directory):
+#   1. Create a wallet PEM (mxpy wallet new --format pem --outfile wallet.pem)
+#   2. Fund it from https://devnet-wallet.multiversx.com (one drip = ~5 EGLD)
+#   3. Drop the PEM at this directory (or update Faucet.PemPath below)
+#   4. Run smoke.sh
+
+[Server]
+    Port = 7951
+    ShutdownTimeoutSeconds = 10
+
+[Proxy]
+    URL = "https://devnet-gateway.multiversx.com"
+    FinalityCheck = false
+    CacheExpirationSeconds = 30
+
+[Accounts]
+    # Small pool — Tier 1 is "does the wire work", not "how fast can it go".
+    PoolSize = 10
+    StateDir = "./state-devnet"
+    RegenerateOnStart = true
+    # 0.1 EGLD per pool account is plenty for ~100 move-balance txs each
+    # at 50000 gas × 1 Gwei = 0.00005 EGLD per tx.
+    InitialBalance = "100000000000000000"
+    # Gentle on the public gateway. 4 in-flight GetAccount calls is below
+    # any reasonable rate-limit threshold.
+    SyncConcurrency = 4
+
+[Sharding]
+    # Devnet's /network/config returns erd_num_shards_without_meta = "3".
+    # If you point this config at testnet you MUST also set this to match
+    # testnet's shard count.
+    NumShards = 3
+
+[Scenarios]
+    Enabled = ["basic", "erc20", "esdt"]
+
+[ERC20]
+    WasmPath = "./contracts/erc20.wasm"
+
+[Polling]
+    # Devnet round duration is 6 s. A deploy or issue tx becomes
+    # observable within 2-3 rounds. 1 s sampling is gentle but
+    # responsive; 90 s timeout is generous for a cross-shard tx.
+    IntervalMilliseconds = 1000
+    TimeoutSeconds = 90
+
+[Stats]
+    EnableTPSSampler = true
+    SamplerIntervalSeconds = 5
+
+[Submit]
+    # Public gateway accepts the upstream-default batch size.
+    BunchSize = 100
+
+[Faucet]
+    # Pre-funds the 10 pool accounts at startup from your faucet-funded
+    # wallet PEM. Set Enabled=true and point at your PEM.
+    Enabled = true
+    PemPath = "./wallet.pem"
+    # 0.1 EGLD per pool account.
+    AmountPerAccount = "100000000000000000"
+    GasPrice = 1000000000
+    GasLimit = 50000

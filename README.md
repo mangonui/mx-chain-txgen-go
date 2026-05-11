@@ -262,6 +262,25 @@ The three baseline scenarios (`basic`, `erc20`, `esdt`) remain useful as
 parity benchmarks against the upstream chain even after the DRWA-specific
 scenarios are added.
 
+## Quick start: validate against public devnet
+
+The fastest way to convince yourself the wiring works end-to-end is the
+Tier 1 smoke under [`examples/devnet-smoke/`](examples/devnet-smoke/).
+That sends 10 native-EGLD transfers via the public devnet gateway from
+a faucet-funded wallet and polls each tx hash to terminal status.
+
+```bash
+make build
+cd examples/devnet-smoke
+# follow the README to create wallet.pem and faucet-fund it
+../../cmd/txgen/txgen --config ./config.toml &
+./smoke.sh
+```
+
+The example is scoped to a single 10-tx batch so it does not abuse the
+shared public devnet infrastructure. For real load testing, run a local
+testnet (see below).
+
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE).
