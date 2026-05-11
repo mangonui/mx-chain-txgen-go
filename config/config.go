@@ -17,11 +17,13 @@ type Config struct {
 	Polling   PollingConfig
 	Stats     StatsConfig
 	Faucet    FaucetConfig
+	Submit    SubmitConfig
 }
 
 // ServerConfig governs the txgen's own HTTP listener.
 type ServerConfig struct {
-	Port int
+	Port                   int
+	ShutdownTimeoutSeconds int
 }
 
 // ProxyConfig governs the upstream proxy client.
@@ -37,6 +39,11 @@ type AccountsConfig struct {
 	StateDir          string
 	RegenerateOnStart bool
 	InitialBalance    string
+	// SyncConcurrency caps the number of in-flight GetAccount requests
+	// the boot-time nonce sync issues against the proxy. Default 16 is
+	// gentle on local proxies; tune up for large pools when the proxy
+	// is on different hardware.
+	SyncConcurrency int
 }
 
 // ShardingConfig must match the testnet's shard count so the
@@ -68,6 +75,16 @@ type StatsConfig struct {
 	SamplerIntervalSeconds int
 }
 
+// SubmitConfig governs the transaction submitter.
+type SubmitConfig struct {
+	// BunchSize is the maximum number of signed transactions packed
+	// into a single POST /transaction/send-multiple call. 100 mirrors
+	// the upstream txgen's implicit default and is comfortable for
+	// stock mx-chain-proxy-go. Increase only if the proxy is known to
+	// accept larger batches.
+	BunchSize int
+}
+
 // FaucetConfig governs the optional boot-time funding step.
 //
 // On a stock mx-chain-go local testnet, mx-chain-deploy-go/filegen
@@ -97,8 +114,18 @@ func Load(path string) (*Config, error) {
 }
 
 func (c *Config) validate() error {
+	c.applyDefaults()
 	if c.Server.Port <= 0 || c.Server.Port > 65535 {
 		return fmt.Errorf("invalid Server.Port: %d", c.Server.Port)
+	}
+	if c.Server.ShutdownTimeoutSeconds < 0 {
+		return fmt.Errorf("Server.ShutdownTimeoutSeconds must be >= 0")
+	}
+	if c.Accounts.SyncConcurrency <= 0 {
+		return fmt.Errorf("Accounts.SyncConcurrency must be > 0")
+	}
+	if c.Submit.BunchSize <= 0 {
+		return fmt.Errorf("Submit.BunchSize must be > 0")
 	}
 	if c.Proxy.URL == "" {
 		return fmt.Errorf("Proxy.URL is required")
@@ -127,4 +154,18 @@ func (c *Config) validate() error {
 		}
 	}
 	return nil
+}
+
+// applyDefaults backfills zero-valued knobs with sane defaults so older
+// config files don't break after a new tunable is added.
+func (c *Config) applyDefaults() {
+	if c.Server.ShutdownTimeoutSeconds == 0 {
+		c.Server.ShutdownTimeoutSeconds = 15
+	}
+	if c.Accounts.SyncConcurrency == 0 {
+		c.Accounts.SyncConcurrency = 16
+	}
+	if c.Submit.BunchSize == 0 {
+		c.Submit.BunchSize = 100
+	}
 }

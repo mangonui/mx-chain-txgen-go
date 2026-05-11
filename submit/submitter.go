@@ -14,28 +14,32 @@ import (
 	"github.com/mangonui/mx-chain-txgen-go/proxy"
 )
 
-// BunchSize is the default number of signed transactions submitted in one
-// proxy round-trip. Matches mx-chain-go scripts/testnet/variables.sh's
-// implicit batching expectations.
-const BunchSize = 100
+// DefaultBunchSize is the fallback batch size when a caller constructs
+// a Submitter with bunchSize <= 0. Matches the upstream txgen's
+// implicit batching expectation.
+const DefaultBunchSize = 100
 
 // Submitter is the thin layer that signs and submits transactions through
 // mx-sdk-go's TransactionInteractor. One Submitter is shared across all
 // scenarios; scenarios call SignAndSubmit with their already-populated tx
 // list and Submitter handles per-account signing + batched dispatch.
 type Submitter struct {
-	prx     *proxy.Client
-	builder sdkInteractors.TxBuilder
+	prx       *proxy.Client
+	builder   sdkInteractors.TxBuilder
+	bunchSize int
 }
 
-// New wires the Submitter against a proxy client and the SDK's default tx
-// builder. The crypto provider's signer matches the chain's ed25519 scheme.
-func New(prx *proxy.Client) (*Submitter, error) {
+// New wires the Submitter against a proxy client and the SDK's default
+// tx builder. bunchSize <= 0 selects DefaultBunchSize.
+func New(prx *proxy.Client, bunchSize int) (*Submitter, error) {
 	builder, err := sdkBuilders.NewTxBuilder(sdkCryptoProvider.NewSigner())
 	if err != nil {
 		return nil, fmt.Errorf("new tx builder: %w", err)
 	}
-	return &Submitter{prx: prx, builder: builder}, nil
+	if bunchSize <= 0 {
+		bunchSize = DefaultBunchSize
+	}
+	return &Submitter{prx: prx, builder: builder, bunchSize: bunchSize}, nil
 }
 
 // Job binds a transaction to the account that should sign it. Scenarios
@@ -67,7 +71,7 @@ func (s *Submitter) SignAndSubmit(ctx context.Context, jobs []Job) ([]string, er
 		}
 		ti.AddTransaction(job.Tx)
 	}
-	hashes, err := ti.SendTransactionsAsBunch(ctx, BunchSize)
+	hashes, err := ti.SendTransactionsAsBunch(ctx, s.bunchSize)
 	if err != nil {
 		return nil, fmt.Errorf("send transactions: %w", err)
 	}

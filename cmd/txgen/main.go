@@ -21,6 +21,7 @@ import (
 	"github.com/mangonui/mx-chain-txgen-go/shards"
 	"github.com/mangonui/mx-chain-txgen-go/stats"
 	"github.com/mangonui/mx-chain-txgen-go/submit"
+	"github.com/mangonui/mx-chain-txgen-go/version"
 )
 
 func main() {
@@ -33,7 +34,14 @@ func main() {
 		"override Accounts.PoolSize (used by upstream scripts/testnet wrapper)")
 	newAccountsFlag := flag.Bool("new-accounts", false,
 		"alias of --regenerate-accounts; matches the upstream txgen CLI flag")
+	versionFlag := flag.Bool("version", false, "print version info and exit")
 	flag.Parse()
+
+	if *versionFlag {
+		fmt.Printf("txgen %s (commit %s, built %s)\n",
+			version.Version, version.Commit, version.BuildDate)
+		return
+	}
 
 	cfg, err := config.Load(*cfgPath)
 	if err != nil {
@@ -114,12 +122,12 @@ func runServer(cfg *config.Config) error {
 
 	tracker := nonces.New(prx)
 	log.Printf("syncing nonces for %d accounts...", pool.Len())
-	if err := pool.SyncNonces(ctx, tracker.Sync); err != nil {
+	if err := pool.SyncNonces(ctx, tracker.Sync, cfg.Accounts.SyncConcurrency); err != nil {
 		return fmt.Errorf("sync nonces: %w", err)
 	}
 	log.Printf("nonces synced")
 
-	submitter, err := submit.New(prx)
+	submitter, err := submit.New(prx, cfg.Submit.BunchSize)
 	if err != nil {
 		return fmt.Errorf("submitter: %w", err)
 	}
@@ -136,7 +144,7 @@ func runServer(cfg *config.Config) error {
 			return fmt.Errorf("faucet drain: %w", err)
 		}
 		log.Printf("faucet: drain complete; re-syncing pool nonces from chain")
-		if err := pool.SyncNonces(ctx, tracker.Sync); err != nil {
+		if err := pool.SyncNonces(ctx, tracker.Sync, cfg.Accounts.SyncConcurrency); err != nil {
 			return fmt.Errorf("post-drain nonce resync: %w", err)
 		}
 	}

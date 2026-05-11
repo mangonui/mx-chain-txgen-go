@@ -4,6 +4,10 @@
     # HTTP port the txgen listens on. Must match the PORT_TXGEN in
     # mx-chain-go/scripts/testnet/variables.sh (default 7951).
     Port = 7951
+    # On SIGINT/SIGTERM, stop accepting new requests and wait up to this
+    # many seconds for any in-flight scenario to finish before exiting.
+    # 0 = use the default (15 s).
+    ShutdownTimeoutSeconds = 15
 
 [Proxy]
     # URL of the mx-chain-proxy-go instance fronting the local testnet.
@@ -27,6 +31,10 @@
     # Per-account initial balance for genesis-injection mode (atomic units).
     # 1 EGLD = 10^18. Default = 1000 EGLD.
     InitialBalance = "1000000000000000000000"
+    # Maximum in-flight GetAccount calls during the boot-time nonce
+    # sync. 0 = use the default (16). Tune up for large pools when the
+    # proxy is not the bottleneck.
+    SyncConcurrency = 16
 
 [Sharding]
     # Number of regular shards (excluding metashard). Must match
@@ -57,6 +65,12 @@
     # Periodic /network/status sampling for honest included-TPS reporting.
     EnableTPSSampler = true
     SamplerIntervalSeconds = 5
+
+[Submit]
+    # Maximum signed transactions packed into a single
+    # POST /transaction/send-multiple call to the proxy. 0 = use the
+    # default (100). Mirrors the upstream txgen's implicit batching.
+    BunchSize = 100
 
 [Faucet]
     # Drain a single PEM-loaded wallet into every pool account at startup.

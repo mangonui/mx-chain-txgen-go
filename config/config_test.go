@@ -163,3 +163,32 @@ func TestLoad_MalformedTOMLIsError(t *testing.T) {
 		t.Fatalf("expected error on malformed input")
 	}
 }
+
+func TestLoad_NegativeShutdownTimeoutRejected(t *testing.T) {
+	body := strings.Replace(validConfig, "Port = 7951",
+		"Port = 7951\nShutdownTimeoutSeconds = -1", 1)
+	_, err := Load(writeConfig(t, body))
+	if err == nil || !strings.Contains(err.Error(), "ShutdownTimeoutSeconds") {
+		t.Fatalf("expected ShutdownTimeoutSeconds error, got %v", err)
+	}
+}
+
+func TestLoad_DefaultsAppliedToZeroFields(t *testing.T) {
+	// validConfig omits the new knobs entirely; applyDefaults must
+	// backfill them so loading succeeds and the runtime values are
+	// sane. Critical regression guard: removing applyDefaults breaks
+	// every existing config.toml in the wild.
+	cfg, err := Load(writeConfig(t, validConfig))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if cfg.Server.ShutdownTimeoutSeconds != 15 {
+		t.Fatalf("ShutdownTimeoutSeconds default: got %d, want 15", cfg.Server.ShutdownTimeoutSeconds)
+	}
+	if cfg.Accounts.SyncConcurrency != 16 {
+		t.Fatalf("SyncConcurrency default: got %d, want 16", cfg.Accounts.SyncConcurrency)
+	}
+	if cfg.Submit.BunchSize != 100 {
+		t.Fatalf("Submit.BunchSize default: got %d, want 100", cfg.Submit.BunchSize)
+	}
+}

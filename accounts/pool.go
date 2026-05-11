@@ -229,17 +229,83 @@ func load(path string, sc *shards.Coordinator) (*Pool, error) {
 	return pool, nil
 }
 
-// SyncNonces seeds every account's nonce from the proxy. This is a one-time
-// cost at boot and runs serially to keep the proxy load gentle. For very
-// large pools this could be parallelised, but for the typical 1000-account
-// load test the boot delay is acceptable.
-func (p *Pool) SyncNonces(ctx context.Context, syncFn func(ctx context.Context, addr sdkCore.AddressHandler, bech32 string) error) error {
-	for _, acc := range p.all {
-		if err := syncFn(ctx, acc.AddressHandler, acc.Bech32); err != nil {
-			return fmt.Errorf("sync nonce for %s (index %d): %w", acc.Bech32, acc.Index, err)
-		}
+// SyncNonces seeds every account's nonce from the proxy at boot.
+//
+// Runs syncFn against up to concurrency accounts in parallel; bounded by
+// a semaphore channel so a 10k-account pool against a single proxy
+// doesn't open 10k simultaneous HTTP connections. Returns the first
+// error encountered; later errors after the first failure are
+// discarded but every in-flight call is allowed to drain.
+//
+// concurrency <= 0 falls back to serial execution.
+func (p *Pool) SyncNonces(
+	ctx context.Context,
+	syncFn func(ctx context.Context, addr sdkCore.AddressHandler, bech32 string) error,
+	concurrency int,
+) error {
+	if len(p.all) == 0 {
+		return nil
 	}
-	return nil
+	if concurrency <= 0 {
+		concurrency = 1
+	}
+
+	sem := make(chan struct{}, concurrency)
+	var (
+		mu       sync.Mutex
+		firstErr error
+		wg       sync.WaitGroup
+	)
+
+	for _, acc := range p.all {
+		// Primary gate: if the context is already cancelled, do not
+		// schedule any further work. A bare select { ctx.Done() | sem }
+		// would race because Go picks pseudo-randomly between ready
+		// cases, letting up to `concurrency` jobs slip in after
+		// cancellation.
+		if err := ctx.Err(); err != nil {
+			wg.Wait()
+			if firstErr != nil {
+				return firstErr
+			}
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			// Cancellation arrived while waiting on a semaphore slot.
+			wg.Wait()
+			if firstErr != nil {
+				return firstErr
+			}
+			return ctx.Err()
+		case sem <- struct{}{}:
+		}
+		wg.Add(1)
+		go func(a *Account) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			// Short-circuit if another goroutine already failed; saves
+			// pointless work but is not a correctness requirement
+			// (syncFn must be tolerant of in-flight cancellation
+			// regardless).
+			mu.Lock()
+			alreadyFailed := firstErr != nil
+			mu.Unlock()
+			if alreadyFailed {
+				return
+			}
+			if err := syncFn(ctx, a.AddressHandler, a.Bech32); err != nil {
+				mu.Lock()
+				if firstErr == nil {
+					firstErr = fmt.Errorf("sync nonce for %s (index %d): %w", a.Bech32, a.Index, err)
+				}
+				mu.Unlock()
+			}
+		}(acc)
+	}
+	wg.Wait()
+	return firstErr
 }
 
 func seedFromCryptoRand() int64 {

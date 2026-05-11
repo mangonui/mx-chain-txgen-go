@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -30,6 +31,7 @@ func New(cfg config.ServerConfig, registry *scenarios.Registry, comp *scenarios.
 	gin.SetMode(gin.ReleaseMode)
 	engine := gin.New()
 	engine.Use(gin.Recovery())
+	engine.Use(loggingMiddleware())
 
 	h := &handler{registry: registry, comp: comp, sampler: sampler}
 	engine.POST("/transaction/send-multiple", h.sendMultiple)
@@ -46,8 +48,14 @@ func New(cfg config.ServerConfig, registry *scenarios.Registry, comp *scenarios.
 	return &Server{cfg: cfg, srv: srv, engine: engine}
 }
 
-// Start runs the server until the context is cancelled or an unrecoverable
-// listener error occurs. The returned error is nil on graceful shutdown.
+// Start runs the server until the context is cancelled or an
+// unrecoverable listener error occurs. The returned error is nil on
+// graceful shutdown.
+//
+// On ctx.Done(), Shutdown is called with the configured
+// ShutdownTimeoutSeconds budget. The handler-level request mutex
+// ensures at most one /transaction/send-multiple is in flight at any
+// time, so the realistic worst-case drain is one full scenario run.
 func (s *Server) Start(ctx context.Context) error {
 	errCh := make(chan error, 1)
 	go func() {
@@ -62,7 +70,12 @@ func (s *Server) Start(ctx context.Context) error {
 	case err := <-errCh:
 		return err
 	case <-ctx.Done():
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		timeout := time.Duration(s.cfg.ShutdownTimeoutSeconds) * time.Second
+		if timeout <= 0 {
+			timeout = 15 * time.Second
+		}
+		log.Printf("shutdown: waiting up to %s for in-flight scenario to complete", timeout)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		return s.srv.Shutdown(shutdownCtx)
 	}

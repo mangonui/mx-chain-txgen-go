@@ -60,6 +60,7 @@ func newTestEngine(t *testing.T, fake *fakeScenario, sampler *stats.Sampler) (*g
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	engine.Use(gin.Recovery())
+	engine.Use(loggingMiddleware())
 
 	registry, err := scenarios.NewRegistry(
 		[]scenarios.Scenario{fake},
