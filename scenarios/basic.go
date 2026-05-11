@@ -62,7 +62,8 @@ func (b *BasicScenario) Run(ctx context.Context, req Request, comp *Components) 
 			GasPrice: req.GasPrice,
 			GasLimit: req.GasLimit,
 			ChainID:  comp.NetConfig.ChainID,
-			Version:  1,
+			Version:  req.Version,
+			Options:  req.Options,
 		}
 		jobs = append(jobs, submit.Job{Sender: sender, Tx: tx})
 	}

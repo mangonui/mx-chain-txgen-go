@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -23,13 +24,25 @@ var reportWindows = []stats.Window{
 // handler is the per-request adapter from the gin context to the scenario
 // registry. Stateless apart from the captured components, registry, and
 // optional stats sampler.
+//
+// requestMu serialises /transaction/send-multiple. Without it, two
+// concurrent requests can interleave Nonces.Next calls and submit
+// transactions out of nonce order — the chain then rejects the lower-
+// nonce tx as nonceTooLow, silently dropping load. The upstream txgen
+// is also driven sequentially (one curl every N seconds in the shell
+// drivers), so serialising here matches operational reality without
+// surprising anyone. Diagnostic and stats endpoints are not gated.
 type handler struct {
-	registry *scenarios.Registry
-	comp     *scenarios.Components
-	sampler  *stats.Sampler
+	registry  *scenarios.Registry
+	comp      *scenarios.Components
+	sampler   *stats.Sampler
+	requestMu sync.Mutex
 }
 
 func (h *handler) sendMultiple(c *gin.Context) {
+	h.requestMu.Lock()
+	defer h.requestMu.Unlock()
+
 	var req SendMultipleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.respondError(c, http.StatusBadRequest, "decode_failed", err.Error())
@@ -58,6 +71,14 @@ func (h *handler) sendMultiple(c *gin.Context) {
 		return
 	}
 
+	// Normalise Version: callers omitting the field land here at 0;
+	// the chain rejects Version=0 so we default to 1 (the historical
+	// move-balance / contract-call shape). Operators wanting hash-on-
+	// sign or guarded/relayed semantics set Version=2 explicitly.
+	version := req.Version
+	if version == 0 {
+		version = 1
+	}
 	scenReq := scenarios.Request{
 		Value:       req.Value.String(),
 		NumOfTxs:    req.NumOfTxs,
@@ -67,6 +88,8 @@ func (h *handler) sendMultiple(c *gin.Context) {
 		RecallNonce: req.RecallNonce,
 		Data:        req.Data,
 		SCAddress:   req.SCAddress,
+		Version:     version,
+		Options:     req.Options,
 	}
 	result, err := scen.Run(c.Request.Context(), scenReq, h.comp)
 	if err != nil {

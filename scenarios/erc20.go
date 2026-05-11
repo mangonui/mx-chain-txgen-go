@@ -94,7 +94,8 @@ func (e *ERC20Scenario) deploy(ctx context.Context, req Request, comp *Component
 		GasLimit: req.GasLimit,
 		Data:     []byte(data),
 		ChainID:  comp.NetConfig.ChainID,
-		Version:  1,
+		Version:  req.Version,
+		Options:  req.Options,
 	}
 	hashes, err := comp.Submitter.SignAndSubmit(ctx, []submit.Job{{Sender: deployer, Tx: tx}})
 	if err != nil {
@@ -148,7 +149,8 @@ func (e *ERC20Scenario) mint(ctx context.Context, req Request, comp *Components)
 			GasLimit: req.GasLimit,
 			Data:     []byte(data),
 			ChainID:  comp.NetConfig.ChainID,
-			Version:  1,
+			Version:  req.Version,
+			Options:  req.Options,
 		}
 		jobs = append(jobs, submit.Job{Sender: deployer, Tx: tx})
 	}
@@ -202,7 +204,8 @@ func (e *ERC20Scenario) transfer(ctx context.Context, req Request, comp *Compone
 			GasLimit: req.GasLimit,
 			Data:     []byte(data),
 			ChainID:  comp.NetConfig.ChainID,
-			Version:  1,
+			Version:  req.Version,
+			Options:  req.Options,
 		}
 		jobs = append(jobs, submit.Job{Sender: sender, Tx: tx})
 	}

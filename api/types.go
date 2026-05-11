@@ -62,6 +62,12 @@ func (a FlexibleAmount) String() string {
 // SendMultipleRequest is the JSON body of POST /transaction/send-multiple.
 // Field names and semantics match the upstream txgen's contract so the
 // existing txgen-*.sh shell drivers in mx-chain-go work unchanged.
+//
+// Version and Options are extensions for testing alternative tx shapes
+// on Supernova (e.g. Version=2 with Options=1 to request hash-on-sign,
+// or Options bits used by guarded / relayed transactions). When omitted
+// they default to Version=1, Options=0 — the historically safe choice
+// for move-balance and standard contract calls.
 type SendMultipleRequest struct {
 	Value       FlexibleAmount `json:"value"`
 	NumOfTxs    int            `json:"numOfTxs"`
@@ -72,6 +78,8 @@ type SendMultipleRequest struct {
 	Scenario    string         `json:"scenario"`
 	Data        string         `json:"data,omitempty"`
 	SCAddress   string         `json:"scAddress,omitempty"`
+	Version     uint32         `json:"version,omitempty"`
+	Options     uint32         `json:"options,omitempty"`
 }
 
 // SendMultipleResponse mirrors the upstream proxy's response shape so the

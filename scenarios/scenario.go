@@ -16,6 +16,10 @@ import (
 // Request is the normalized form of an HTTP load-test request. The API
 // layer parses the raw JSON into this struct before dispatching to a
 // scenario; this keeps scenarios free of HTTP plumbing.
+//
+// Version / Options are applied to every transaction the scenario
+// builds. They are normalised by the API layer so scenarios can assume
+// Version is non-zero (defaults to 1) and Options is the raw bitmask.
 type Request struct {
 	Value       string
 	NumOfTxs    int
@@ -25,6 +29,8 @@ type Request struct {
 	RecallNonce bool
 	Data        string
 	SCAddress   string
+	Version     uint32
+	Options     uint32
 }
 
 // Result is what a scenario returns to the API layer.

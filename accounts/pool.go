@@ -14,9 +14,7 @@ import (
 
 	"github.com/multiversx/mx-chain-crypto-go/signing"
 	"github.com/multiversx/mx-chain-crypto-go/signing/ed25519"
-	sdkBlockchainCrypto "github.com/multiversx/mx-sdk-go/blockchain/cryptoProvider"
 	sdkCore "github.com/multiversx/mx-sdk-go/core"
-	sdkData "github.com/multiversx/mx-sdk-go/data"
 
 	"github.com/mangonui/mx-chain-txgen-go/config"
 	"github.com/mangonui/mx-chain-txgen-go/shards"
@@ -150,39 +148,17 @@ func generate(n int, sc *shards.Coordinator) (*Pool, error) {
 	}
 
 	for i := 0; i < n; i++ {
-		sk, pk := keyGen.GeneratePair()
+		sk, _ := keyGen.GeneratePair()
 		skBytes, err := sk.ToByteArray()
 		if err != nil {
 			return nil, fmt.Errorf("export private key %d: %w", i, err)
 		}
-		pkBytes, err := pk.ToByteArray()
+		acc, err := BuildAccount(skBytes, i, sc)
 		if err != nil {
-			return nil, fmt.Errorf("export public key %d: %w", i, err)
-		}
-		addr := sdkData.NewAddressFromBytes(pkBytes)
-		bech32, err := addr.AddressAsBech32String()
-		if err != nil {
-			return nil, fmt.Errorf("bech32 encode %d: %w", i, err)
-		}
-		shardID, err := sc.ComputeShardID(addr)
-		if err != nil {
-			return nil, fmt.Errorf("compute shard %d: %w", i, err)
-		}
-		holder, err := sdkBlockchainCrypto.NewCryptoComponentsHolder(keyGen, skBytes)
-		if err != nil {
-			return nil, fmt.Errorf("crypto holder %d: %w", i, err)
-		}
-		acc := &Account{
-			Index:          i,
-			PrivateKey:     skBytes,
-			PublicKey:      pkBytes,
-			Bech32:         bech32,
-			ShardID:        shardID,
-			AddressHandler: addr,
-			CryptoHolder:   holder,
+			return nil, fmt.Errorf("build account %d: %w", i, err)
 		}
 		pool.all = append(pool.all, acc)
-		pool.byShard[shardID] = append(pool.byShard[shardID], acc)
+		pool.byShard[acc.ShardID] = append(pool.byShard[acc.ShardID], acc)
 	}
 	return pool, nil
 }
@@ -233,8 +209,6 @@ func load(path string, sc *shards.Coordinator) (*Pool, error) {
 		return nil, fmt.Errorf("unsupported pool version %d", f.Version)
 	}
 
-	suite := ed25519.NewEd25519()
-	keyGen := signing.NewKeyGenerator(suite)
 	pool := &Pool{
 		all:     make([]*Account, 0, len(f.Accounts)),
 		byShard: make(map[uint32][]*Account),
@@ -245,39 +219,12 @@ func load(path string, sc *shards.Coordinator) (*Pool, error) {
 		if err != nil {
 			return nil, fmt.Errorf("decode privkey index %d: %w", rec.Index, err)
 		}
-		sk, err := keyGen.PrivateKeyFromByteArray(skBytes)
+		acc, err := BuildAccount(skBytes, rec.Index, sc)
 		if err != nil {
-			return nil, fmt.Errorf("rebuild private key %d: %w", rec.Index, err)
-		}
-		pk := sk.GeneratePublic()
-		pkBytes, err := pk.ToByteArray()
-		if err != nil {
-			return nil, fmt.Errorf("export public %d: %w", rec.Index, err)
-		}
-		addr := sdkData.NewAddressFromBytes(pkBytes)
-		bech32, err := addr.AddressAsBech32String()
-		if err != nil {
-			return nil, fmt.Errorf("bech32 encode %d: %w", rec.Index, err)
-		}
-		shardID, err := sc.ComputeShardID(addr)
-		if err != nil {
-			return nil, fmt.Errorf("compute shard %d: %w", rec.Index, err)
-		}
-		holder, err := sdkBlockchainCrypto.NewCryptoComponentsHolder(keyGen, skBytes)
-		if err != nil {
-			return nil, fmt.Errorf("crypto holder %d: %w", rec.Index, err)
-		}
-		acc := &Account{
-			Index:          rec.Index,
-			PrivateKey:     skBytes,
-			PublicKey:      pkBytes,
-			Bech32:         bech32,
-			ShardID:        shardID,
-			AddressHandler: addr,
-			CryptoHolder:   holder,
+			return nil, fmt.Errorf("rebuild account %d: %w", rec.Index, err)
 		}
 		pool.all = append(pool.all, acc)
-		pool.byShard[shardID] = append(pool.byShard[shardID], acc)
+		pool.byShard[acc.ShardID] = append(pool.byShard[acc.ShardID], acc)
 	}
 	return pool, nil
 }

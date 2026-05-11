@@ -19,11 +19,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/multiversx/mx-chain-crypto-go/signing"
-	"github.com/multiversx/mx-chain-crypto-go/signing/ed25519"
 	coreData "github.com/multiversx/mx-chain-core-go/data/transaction"
-	sdkBlockchainCrypto "github.com/multiversx/mx-sdk-go/blockchain/cryptoProvider"
-	sdkCore "github.com/multiversx/mx-sdk-go/core"
 	sdkData "github.com/multiversx/mx-sdk-go/data"
 	sdkInteractors "github.com/multiversx/mx-sdk-go/interactors"
 
@@ -33,6 +29,10 @@ import (
 	"github.com/mangonui/mx-chain-txgen-go/shards"
 	"github.com/mangonui/mx-chain-txgen-go/submit"
 )
+
+// faucetSentinelIndex marks the loaded faucet Account as "not a member
+// of the pool" (pool indices are 0..PoolSize-1).
+const faucetSentinelIndex = -1
 
 // Drainer broadcasts pre-funding transfers from a single PEM-loaded
 // faucet account to every member of the pool.
@@ -141,9 +141,9 @@ func (d *Drainer) Drain(ctx context.Context, amountPerAccount string, gasPrice, 
 }
 
 // loadFaucet reads a single-key PEM (MultiversX wallet format) and
-// builds an accounts.Account with the same crypto holder pattern the
-// pool uses, so the submitter can sign faucet txs without any special-
-// casing.
+// builds an accounts.Account using the shared accounts.BuildAccount
+// helper, so faucet txs sign through the exact same crypto-holder path
+// as pool-member txs.
 func loadFaucet(pemPath string, sc *shards.Coordinator) (*accounts.Account, error) {
 	if pemPath == "" {
 		return nil, fmt.Errorf("faucet PEM path is empty")
@@ -152,47 +152,9 @@ func loadFaucet(pemPath string, sc *shards.Coordinator) (*accounts.Account, erro
 	if err != nil {
 		return nil, fmt.Errorf("read faucet pem %s: %w", pemPath, err)
 	}
-	w := sdkInteractors.NewWallet()
-	skBytes, err := w.LoadPrivateKeyFromPemData(pemBytes)
+	skBytes, err := sdkInteractors.NewWallet().LoadPrivateKeyFromPemData(pemBytes)
 	if err != nil {
 		return nil, fmt.Errorf("decode pem: %w", err)
 	}
-	suite := ed25519.NewEd25519()
-	keyGen := signing.NewKeyGenerator(suite)
-	sk, err := keyGen.PrivateKeyFromByteArray(skBytes)
-	if err != nil {
-		return nil, fmt.Errorf("private key from bytes: %w", err)
-	}
-	pk := sk.GeneratePublic()
-	pkBytes, err := pk.ToByteArray()
-	if err != nil {
-		return nil, fmt.Errorf("public key to bytes: %w", err)
-	}
-	addr := sdkData.NewAddressFromBytes(pkBytes)
-	bech32, err := addr.AddressAsBech32String()
-	if err != nil {
-		return nil, fmt.Errorf("bech32 encode: %w", err)
-	}
-	shardID, err := sc.ComputeShardID(addr)
-	if err != nil {
-		return nil, fmt.Errorf("compute shard: %w", err)
-	}
-	holder, err := sdkBlockchainCrypto.NewCryptoComponentsHolder(keyGen, skBytes)
-	if err != nil {
-		return nil, fmt.Errorf("crypto holder: %w", err)
-	}
-	return &accounts.Account{
-		Index:          -1, // signals "not in the pool"
-		PrivateKey:     skBytes,
-		PublicKey:      pkBytes,
-		Bech32:         bech32,
-		ShardID:        shardID,
-		AddressHandler: addr,
-		CryptoHolder:   holder,
-	}, nil
+	return accounts.BuildAccount(skBytes, faucetSentinelIndex, sc)
 }
-
-// Ensure unused import discipline — the SDK Core type is referenced
-// through the holder factory above but the explicit import keeps godoc
-// linkage clear for readers.
-var _ = sdkCore.AddressHandler(nil)

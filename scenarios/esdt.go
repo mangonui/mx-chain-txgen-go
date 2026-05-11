@@ -89,7 +89,8 @@ func (e *ESDTScenario) issue(ctx context.Context, req Request, comp *Components)
 		GasLimit: req.GasLimit,
 		Data:     []byte(data),
 		ChainID:  comp.NetConfig.ChainID,
-		Version:  1,
+		Version:  req.Version,
+		Options:  req.Options,
 	}
 	hashes, err := comp.Submitter.SignAndSubmit(ctx, []submit.Job{{Sender: issuer, Tx: tx}})
 	if err != nil {
@@ -154,7 +155,8 @@ func (e *ESDTScenario) mint(ctx context.Context, req Request, comp *Components) 
 			GasLimit: req.GasLimit,
 			Data:     []byte(data),
 			ChainID:  comp.NetConfig.ChainID,
-			Version:  1,
+			Version:  req.Version,
+			Options:  req.Options,
 		}
 		jobs = append(jobs, submit.Job{Sender: issuer, Tx: tx})
 	}
@@ -211,7 +213,8 @@ func (e *ESDTScenario) transfer(ctx context.Context, req Request, comp *Componen
 			GasLimit: req.GasLimit,
 			Data:     []byte(data),
 			ChainID:  comp.NetConfig.ChainID,
-			Version:  1,
+			Version:  req.Version,
+			Options:  req.Options,
 		}
 		jobs = append(jobs, submit.Job{Sender: sender, Tx: tx})
 	}
