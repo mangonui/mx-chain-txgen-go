@@ -23,6 +23,10 @@ type SDKProxy interface {
 	SendTransaction(ctx context.Context, tx *coreData.FrontendTransaction) (string, error)
 	SendTransactions(ctx context.Context, txs []*coreData.FrontendTransaction) ([]string, error)
 	ProcessTransactionStatus(ctx context.Context, hash string) (coreData.TxStatus, error)
+	// GetTransactionInfoWithResults fetches the full TransactionOnNetwork
+	// including Logs and SmartContractResults. Required for parsing the
+	// chain-assigned token identifier from an ESDT issuance tx.
+	GetTransactionInfoWithResults(ctx context.Context, hash string) (*sdkData.TransactionInfo, error)
 	IsInterfaceNil() bool
 }
 

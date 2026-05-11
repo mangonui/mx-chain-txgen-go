@@ -10,7 +10,20 @@ rate-limited infrastructure; one polite 10-tx batch is the right scope
 here. For real load testing, see Tier 2 (local testnet) — separate
 exercise.
 
-## What this validates
+## Drivers in this directory
+
+| Script | What it proves | Devnet cost |
+|---|---|---|
+| `smoke.sh` | Basic wire: 10 native-EGLD transfers, faucet drain, status polling | ~0.001 EGLD |
+| `esdt-issue.sh` | ESDT issuance + log-extraction matches what the chain emits | 0.05 EGLD |
+| `erc20-deploy.sh` | Locally-computed contract address matches what the chain assigns | ~0.0015 EGLD |
+| `sustained-light.sh` | Process stability at 1 TPS for 5 minutes — NOT TPS capacity | ~0.015 EGLD |
+
+`sustained-light.sh` is rate-limited to 1 batch/second to stay polite to
+shared infrastructure; raising `RATE_PER_SECOND` will rapidly trip the
+public gateway's rate limits.
+
+## What `smoke.sh` validates
 
 | Layer | Verified by this exercise |
 |---|---|
@@ -24,13 +37,35 @@ exercise.
 | Tx hash → terminal status round-trip | ✓ |
 | Build info / logging middleware / `/healthz` | ✓ |
 
+## What the additional drivers prove
+
+`esdt-issue.sh`: submits ONE `esdt issue`, lets it execute on devnet,
+then independently fetches the tx info from the public gateway and
+verifies the txgen-extracted `tokenIdentifier` matches the chain's
+emitted identifier byte-for-byte. Closes the
+`READ_FROM_TX_LOGS` placeholder that previously lived in `Result.Extra`.
+
+`erc20-deploy.sh`: submits ONE `erc20 deploy`, then compares the
+locally-computed `scAddress` (from `shards.ComputeContractAddress` →
+mx-sdk-go's `blockchain.NewAddressGenerator`) against the address the
+chain logs in the deploy tx's `SCDeploy` event. A mismatch would
+indicate address-derivation drift. Requires `./contracts/erc20.wasm`
+to exist (see `../../contracts/README.md`).
+
+`sustained-light.sh`: runs the basic scenario at 1 batch/s for 5 min
+(300 batches), samples `/stats` and `/healthz` periodically, and
+asserts HTTP error rate stays under 10%. Proves the txgen survives
+multi-minute operation without crashing, leaking, or losing nonce
+sync — does **not** prove TPS capacity, which is a Tier-2 (local
+testnet) concern only.
+
 ## What this deliberately skips
 
-- ERC20 + ESDT scenarios. They work the same way; adding them is a
-  matter of supplying a wasm and re-running. The point of Tier 1 is to
-  prove the wire, not exhaustively re-test every scenario shape.
 - Sustained TPS. Public devnet rate-limits aggressively; sustained load
-  here would be both throttled and abuse-of-shared-resource.
+  here would be both throttled and abuse-of-shared-resource. The
+  `sustained-light.sh` driver in this directory proves *stability*
+  (~1 TPS) but not *capacity* — capacity is a Tier-2 (local testnet)
+  concern only.
 
 ## Pre-flight (one-time)
 

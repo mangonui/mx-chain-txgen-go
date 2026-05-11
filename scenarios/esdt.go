@@ -5,8 +5,60 @@ import (
 	"fmt"
 	"math/big"
 
+	coreTxn "github.com/multiversx/mx-chain-core-go/data/transaction"
+	sdkData "github.com/multiversx/mx-sdk-go/data"
+
 	"github.com/mangonui/mx-chain-txgen-go/submit"
 )
+
+// issuanceEventIdentifiers enumerates the chain-emitted log identifiers
+// for the three ESDT issuance forms. The chain emits exactly one of
+// these per successful issuance call; the first topic of that event is
+// the chain-assigned token identifier as raw UTF-8 bytes (e.g.
+// "WRK-abc123").
+var issuanceEventIdentifiers = map[string]struct{}{
+	"issue":               {},
+	"issueSemiFungible":   {},
+	"issueNonFungible":    {},
+	"registerMetaESDT":    {},
+	"registerAndSetAllRoles": {},
+}
+
+// extractTokenIdentifier walks the issuance tx's logs and returns the
+// chain-assigned token identifier ("<TICKER>-<6hex>"). Returns an empty
+// string and an error if no issuance event is present or if its first
+// topic is empty.
+//
+// info must come from a /transaction/{hash}?withResults=true fetch
+// (i.e. GetTransactionInfoWithResults); a withoutResults fetch lacks
+// the Logs section.
+func extractTokenIdentifier(info *sdkData.TransactionInfo) (string, error) {
+	if info == nil {
+		return "", fmt.Errorf("nil transaction info")
+	}
+	logs := info.Data.Transaction.Logs
+	if logs == nil {
+		return "", fmt.Errorf("transaction has no logs (was withResults=true used?)")
+	}
+	for _, ev := range logs.Events {
+		if !isIssuanceEvent(ev) {
+			continue
+		}
+		if len(ev.Topics) == 0 || len(ev.Topics[0]) == 0 {
+			continue
+		}
+		return string(ev.Topics[0]), nil
+	}
+	return "", fmt.Errorf("no issuance event found in transaction logs (%d events scanned)", len(logs.Events))
+}
+
+func isIssuanceEvent(ev *coreTxn.Events) bool {
+	if ev == nil {
+		return false
+	}
+	_, ok := issuanceEventIdentifiers[ev.Identifier]
+	return ok
+}
 
 // ESDTScenario implements the upstream txgen's three ESDT sub-commands:
 // issue / mint / transfer. Sub-commands are dispatched on Request.Data,
@@ -94,14 +146,21 @@ func (e *ESDTScenario) issue(ctx context.Context, req Request, comp *Components)
 	if status != "success" && status != "executed" {
 		return nil, fmt.Errorf("esdt issue: terminal status %q", status)
 	}
+	// Fetch the issuance tx's logs and extract the chain-assigned token
+	// identifier. The issuance call emits exactly one event whose first
+	// topic carries the identifier as raw bytes (e.g. "WRK-abc123").
+	info, err := comp.Proxy.SDK.GetTransactionInfoWithResults(ctx, hashes[0])
+	if err != nil {
+		return nil, fmt.Errorf("esdt issue: fetch tx info: %w", err)
+	}
+	tokenID, err := extractTokenIdentifier(info)
+	if err != nil {
+		return nil, fmt.Errorf("esdt issue: %w", err)
+	}
 	return &Result{
 		NumSent: 1,
 		Hashes:  hashes,
-		// The actual token identifier (e.g. WRK-abc123) is emitted in the
-		// SCR logs from the issuance call. Callers extract it via
-		// /transaction/{hash} or scan smartContractResults; this stub is
-		// the same hand-off the upstream txgen makes to its shell driver.
-		Extra: map[string]any{"tokenIdentifierHint": "READ_FROM_TX_LOGS"},
+		Extra:   map[string]any{"tokenIdentifier": tokenID},
 	}, nil
 }
 
