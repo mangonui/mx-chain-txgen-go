@@ -23,10 +23,17 @@
     # Small pool — Tier 1 is "does the wire work", not "how fast can it go".
     PoolSize = 10
     StateDir = "./state-devnet"
+    # true on first boot (generates fresh keys, then the Faucet section
+    # drains the wallet into them). Set to false on subsequent runs so
+    # the same pool is reused — accounts retain the balance from the
+    # previous drain.
     RegenerateOnStart = true
-    # 0.1 EGLD per pool account is plenty for ~100 move-balance txs each
-    # at 50000 gas × 1 Gwei = 0.00005 EGLD per tx.
-    InitialBalance = "100000000000000000"
+    # 0.5 EGLD per pool account. Covers many move-balance txs plus one
+    # ESDT issuance per account (issuance reserves ~0.11 EGLD: 0.05
+    # value + 60M × 1 Gwei gas budget). 0.1 EGLD per account is enough
+    # for basic-only smoke; 0.5 leaves headroom for issuance and a
+    # small ERC20 deploy.
+    InitialBalance = "500000000000000000"
     # Gentle on the public gateway. 4 in-flight GetAccount calls is below
     # any reasonable rate-limit threshold.
     SyncConcurrency = 4
@@ -60,10 +67,14 @@
 
 [Faucet]
     # Pre-funds the 10 pool accounts at startup from your faucet-funded
-    # wallet PEM. Set Enabled=true and point at your PEM.
+    # wallet PEM. Set to false on subsequent runs once the pool is
+    # already funded (combine with RegenerateOnStart=false above) so
+    # restarts don't burn another 5 EGLD draining accounts that
+    # already have balance.
     Enabled = true
     PemPath = "./wallet.pem"
-    # 0.1 EGLD per pool account.
-    AmountPerAccount = "100000000000000000"
+    # 0.5 EGLD per pool account — covers basic + esdt + erc20 with
+    # headroom. 10 accounts × 0.5 = 5 EGLD total drain.
+    AmountPerAccount = "500000000000000000"
     GasPrice = 1000000000
     GasLimit = 50000

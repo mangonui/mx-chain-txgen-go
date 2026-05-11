@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	coreData "github.com/multiversx/mx-chain-core-go/data/transaction"
-	sdkBlockchain "github.com/multiversx/mx-sdk-go/blockchain"
 	sdkCryptoProvider "github.com/multiversx/mx-sdk-go/blockchain/cryptoProvider"
 	sdkBuilders "github.com/multiversx/mx-sdk-go/builders"
 	sdkInteractors "github.com/multiversx/mx-sdk-go/interactors"
@@ -78,20 +77,22 @@ func (s *Submitter) SignAndSubmit(ctx context.Context, jobs []Job) ([]string, er
 	return hashes, nil
 }
 
-// unwrapProxyForSDK returns the underlying SDK proxy implementation that
-// NewTransactionInteractor expects. Our proxy.Client wraps this so the rest
-// of the codebase deals with a slim local interface, but the interactor
-// constructor needs the concrete *blockchain.proxy through its full
-// interface contract.
-func (s *Submitter) unwrapProxyForSDK() sdkBlockchain.Proxy {
-	// The proxy.Client.SDK field is the SDK's *proxy (returned by
-	// blockchain.NewProxy). The SDK's Proxy interface is a superset of our
-	// local SDKProxy interface, so a direct type assertion is safe.
-	if sdk, ok := s.prx.SDK.(sdkBlockchain.Proxy); ok {
+// unwrapProxyForSDK returns the underlying SDK proxy implementation
+// that NewTransactionInteractor expects.
+//
+// We deliberately assert against sdkInteractors.Proxy (5 methods —
+// exactly what the interactor needs) rather than sdkBlockchain.Proxy
+// (8 methods). The latter is broken in mx-sdk-go v1.4.8: its
+// FilterLogs signature returns []string but the concrete *proxy.
+// FilterLogs returns []*transaction.Events, so the dynamic-type check
+// `s.prx.SDK.(sdkBlockchain.Proxy)` fails at runtime. Asserting
+// against the smaller (correct) interactors.Proxy avoids this entirely.
+//
+// In tests SDK may be a fake; that fake must satisfy interactors.Proxy
+// (i.e. implement the five methods listed in the interactor interface).
+func (s *Submitter) unwrapProxyForSDK() sdkInteractors.Proxy {
+	if sdk, ok := s.prx.SDK.(sdkInteractors.Proxy); ok {
 		return sdk
 	}
-	// Defensive: in tests SDK may be a fake. The interactor needs the
-	// full surface; tests that exercise SignAndSubmit must supply a real
-	// proxy.
-	panic("submitter: proxy.Client.SDK does not implement sdkBlockchain.Proxy")
+	panic("submitter: proxy.Client.SDK does not implement sdkInteractors.Proxy")
 }

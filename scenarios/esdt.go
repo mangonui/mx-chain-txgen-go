@@ -78,9 +78,12 @@ func (e *ESDTScenario) Name() string { return "esdt" }
 // esdtIssuerIndex is the pool member that owns the issued token.
 const esdtIssuerIndex = 0
 
-// esdtSystemSCAddress is the well-known bech32 of the ESDT issuance system
-// smart contract. Issuance transactions are sent here.
-const esdtSystemSCAddress = "erd1qqqqqqqqqqqqqqqpqqqqqqqqlllllls8a5w6u"
+// esdtSystemSCAddress is the bech32 of the ESDT issuance system smart
+// contract. Derived from the canonical 32-byte hex
+// 000000000000000000010000000000000000000000000000000000000002ffff
+// via bech32 encoding with HRP "erd". Issuance transactions and ESDT
+// administrative calls are sent here.
+const esdtSystemSCAddress = "erd1qqqqqqqqqqqqqqqpqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqzllls8a5w6u"
 
 // defaultTokenName / defaultTokenTicker / defaultDecimals are the params
 // used when /transaction/send-multiple body omits override values. The
