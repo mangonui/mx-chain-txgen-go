@@ -1,0 +1,59 @@
+# mx-chain-txgen-go configuration
+
+[Server]
+    # HTTP port the txgen listens on. Must match the PORT_TXGEN in
+    # mx-chain-go/scripts/testnet/variables.sh (default 7951).
+    Port = 7951
+
+[Proxy]
+    # URL of the mx-chain-proxy-go instance fronting the local testnet.
+    # variables.sh sets PORT_PROXY=7950.
+    URL = "http://localhost:7950"
+    # Block-finality enforcement: when true, the SDK only considers a tx
+    # observed if it is within MaximumBlocksDelta of the final block.
+    FinalityCheck = false
+    # Cache lifetime for proxy responses (network configs etc).
+    CacheExpirationSeconds = 60
+
+[Accounts]
+    # Number of accounts in the pool. Each gets a fresh ed25519 keypair.
+    PoolSize = 1000
+    # On-disk path for the account pool (PEM + JSON metadata).
+    StateDir = "./state"
+    # When true, every start regenerates the pool from scratch. When false,
+    # an existing state directory is reused (used by TXGEN_REGENERATE_ACCOUNTS=0
+    # in the upstream testnet scripts).
+    RegenerateOnStart = false
+    # Per-account initial balance for genesis-injection mode (atomic units).
+    # 1 EGLD = 10^18. Default = 1000 EGLD.
+    InitialBalance = "1000000000000000000000"
+
+[Sharding]
+    # Number of regular shards (excluding metashard). Must match
+    # SHARDCOUNT in scripts/testnet/variables.sh.
+    NumShards = 2
+
+[Scenarios]
+    # Which scenarios this txgen accepts via HTTP. Unknown scenarios are
+    # rejected with 400. Order matters only for human-readable logs.
+    Enabled = ["basic", "erc20", "esdt"]
+
+[ERC20]
+    # Path (relative to working dir or absolute) to the compiled
+    # ERC20-style wasm contract. The bundled placeholder under
+    # contracts/ is loaded by default; replace with your own to test
+    # alternative implementations.
+    WasmPath = "./contracts/erc20.wasm"
+
+[Polling]
+    # When a scenario sub-command needs to wait for a deploy/issuance to be
+    # executed, the service polls /transaction/{hash}/process-status every
+    # IntervalMilliseconds until either Status == "success" / "executed" or
+    # TimeoutSeconds elapses.
+    IntervalMilliseconds = 500
+    TimeoutSeconds = 60
+
+[Stats]
+    # Periodic /network/status sampling for honest included-TPS reporting.
+    EnableTPSSampler = true
+    SamplerIntervalSeconds = 5
