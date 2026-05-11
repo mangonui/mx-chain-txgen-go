@@ -176,18 +176,55 @@ Three sub-commands:
 ## Account pool
 
 On first boot the service generates N keypairs (configurable, default 1000),
-writes them to `state/accounts.pem` and `state/pool.json`. Subsequent runs
-load from disk unless `--regenerate-accounts` is passed.
+writes them to `state/accounts.json`. Subsequent runs load from disk unless
+`--regenerate-accounts` (or the upstream-compatible alias `--new-accounts`)
+is passed.
 
-For local testnets, **genesis injection** is the recommended funding mode:
+## Funding the pool
 
-```bash
-./cmd/txgen/txgen --emit-genesis-balances > /tmp/initialBalances.json
-# Then feed that file into mx-chain-deploy-go/cmd/filegen before config.sh
+The accounts the txgen generates start with **zero balance** on the chain
+and cannot send any transaction without being funded first. There is one
+production path:
+
+### Runtime faucet drain (recommended, matches upstream wiring)
+
+`mx-chain-go/scripts/testnet/include/config.sh` already copies
+`walletKey.pem` (the pre-funded "mint wallet" emitted by
+`mx-chain-deploy-go/filegen`) into the txgen's config directory. Enable
+the faucet in `config.toml` to drain from it at boot:
+
+```toml
+[Faucet]
+    Enabled = true
+    PemPath = "./walletKey.pem"
+    AmountPerAccount = "1000000000000000000000"  # 1000 EGLD
+    GasPrice = 0                                  # 0 = use MinGasPrice
+    GasLimit = 50000
 ```
 
-For long-running testnets, **runtime faucet** mode pulls EGLD from a
-configured faucet account and broadcasts top-up txs at startup.
+On startup the txgen will:
+
+1. Load the PEM, derive the faucet's bech32 + shard ID.
+2. Sync the faucet's on-chain nonce.
+3. Emit one move-balance tx per pool account, with the faucet as sender.
+4. Wait for the *last* tx in the bunch to reach terminal status — the
+   chain processes faucet txs in strict nonce order so the last
+   determines the inclusion frontier.
+5. Re-sync every pool member's nonce from the chain (now non-zero
+   because the funding txs landed).
+
+Only after all that does the HTTP server start accepting scenario
+requests.
+
+### About `--emit-genesis-balances`
+
+The `--emit-genesis-balances` flag remains for non-MultiversX downstream
+bootstraps that *can* take an external initial-balance JSON. **It does
+not integrate with stock `mx-chain-deploy-go/cmd/filegen`** — filegen
+generates the genesis state algorithmically from `total-supply` and
+`node-price` parameters and does not accept an external initial-balance
+file. Use this flag only if you are wiring into a custom genesis
+generator (e.g. a DRWA-specific tool).
 
 ## Build / runtime topology assumed
 

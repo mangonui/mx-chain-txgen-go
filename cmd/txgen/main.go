@@ -14,6 +14,7 @@ import (
 	"github.com/mangonui/mx-chain-txgen-go/accounts"
 	"github.com/mangonui/mx-chain-txgen-go/api"
 	"github.com/mangonui/mx-chain-txgen-go/config"
+	"github.com/mangonui/mx-chain-txgen-go/faucet"
 	"github.com/mangonui/mx-chain-txgen-go/nonces"
 	"github.com/mangonui/mx-chain-txgen-go/proxy"
 	"github.com/mangonui/mx-chain-txgen-go/scenarios"
@@ -123,6 +124,22 @@ func runServer(cfg *config.Config) error {
 		return fmt.Errorf("submitter: %w", err)
 	}
 	poller := submit.NewPoller(prx, cfg.Polling)
+
+	if cfg.Faucet.Enabled {
+		drainer, err := faucet.New(cfg.Faucet.PemPath, sc, pool, tracker, submitter, poller, prx, netCfg)
+		if err != nil {
+			return fmt.Errorf("faucet: %w", err)
+		}
+		log.Printf("faucet: draining from %s (%s atomic units per account, %d accounts)",
+			drainer.FaucetBech32(), cfg.Faucet.AmountPerAccount, pool.Len())
+		if err := drainer.Drain(ctx, cfg.Faucet.AmountPerAccount, cfg.Faucet.GasPrice, cfg.Faucet.GasLimit); err != nil {
+			return fmt.Errorf("faucet drain: %w", err)
+		}
+		log.Printf("faucet: drain complete; re-syncing pool nonces from chain")
+		if err := pool.SyncNonces(ctx, tracker.Sync); err != nil {
+			return fmt.Errorf("post-drain nonce resync: %w", err)
+		}
+	}
 
 	comp := &scenarios.Components{
 		Pool:      pool,

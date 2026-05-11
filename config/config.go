@@ -16,6 +16,7 @@ type Config struct {
 	ERC20     ERC20Config
 	Polling   PollingConfig
 	Stats     StatsConfig
+	Faucet    FaucetConfig
 }
 
 // ServerConfig governs the txgen's own HTTP listener.
@@ -67,6 +68,22 @@ type StatsConfig struct {
 	SamplerIntervalSeconds int
 }
 
+// FaucetConfig governs the optional boot-time funding step.
+//
+// On a stock mx-chain-go local testnet, mx-chain-deploy-go/filegen
+// generates a pre-funded "mint" wallet (canonically walletKey.pem) and
+// the scripts/testnet bootstrap copies it into the txgen's config
+// directory. When Enabled is true, the txgen reads that PEM at startup
+// and pre-funds every pool account with AmountPerAccount atomic units
+// before serving any scenario requests.
+type FaucetConfig struct {
+	Enabled          bool
+	PemPath          string
+	AmountPerAccount string
+	GasPrice         uint64
+	GasLimit         uint64
+}
+
 // Load reads and validates a config file from disk.
 func Load(path string) (*Config, error) {
 	cfg := &Config{}
@@ -100,6 +117,14 @@ func (c *Config) validate() error {
 	}
 	if c.Polling.TimeoutSeconds <= 0 {
 		return fmt.Errorf("Polling.TimeoutSeconds must be > 0")
+	}
+	if c.Faucet.Enabled {
+		if c.Faucet.PemPath == "" {
+			return fmt.Errorf("Faucet.Enabled=true but Faucet.PemPath is empty")
+		}
+		if c.Faucet.AmountPerAccount == "" || c.Faucet.AmountPerAccount == "0" {
+			return fmt.Errorf("Faucet.AmountPerAccount must be a positive integer string")
+		}
 	}
 	return nil
 }

@@ -57,3 +57,19 @@
     # Periodic /network/status sampling for honest included-TPS reporting.
     EnableTPSSampler = true
     SamplerIntervalSeconds = 5
+
+[Faucet]
+    # Drain a single PEM-loaded wallet into every pool account at startup.
+    # This mirrors how mx-chain-go/scripts/testnet/include/config.sh wires
+    # the upstream txgen: filegen generates a pre-funded walletKey.pem,
+    # config.sh copies it into the txgen's config dir, and the txgen
+    # drains from it at boot. Set Enabled=true and point PemPath at the
+    # copied walletKey.pem to reproduce that flow.
+    Enabled = false
+    PemPath = "./walletKey.pem"
+    # 1000 EGLD per account (10^21 atomic units). Adjust for the duration
+    # and intensity of the load test.
+    AmountPerAccount = "1000000000000000000000"
+    # GasPrice 0 means "use the network's MinGasPrice from /network/config".
+    GasPrice = 0
+    GasLimit = 50000
