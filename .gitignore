@@ -1,4 +1,6 @@
 # Build artifacts
+/cmd/*/genwallet
+/cmd/*/txgen
 /cmd/txgen/txgen
 /txgen
 *.test
