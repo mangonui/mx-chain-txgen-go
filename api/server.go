@@ -35,6 +35,7 @@ func New(cfg config.ServerConfig, registry *scenarios.Registry, comp *scenarios.
 	engine.POST("/transaction/send-multiple", h.sendMultiple)
 	engine.GET("/status", h.status)
 	engine.GET("/stats", h.stats)
+	engine.GET("/healthz", h.healthz)
 
 	addr := ":" + strconv.Itoa(cfg.Port)
 	srv := &http.Server{

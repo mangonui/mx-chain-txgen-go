@@ -97,6 +97,7 @@ func newTestEngine(t *testing.T, fake *fakeScenario, sampler *stats.Sampler) (*g
 	engine.POST("/transaction/send-multiple", h.sendMultiple)
 	engine.GET("/status", h.status)
 	engine.GET("/stats", h.stats)
+	engine.GET("/healthz", h.healthz)
 	return engine, fake
 }
 
@@ -389,6 +390,64 @@ func TestHandler_StatusEndpoint(t *testing.T) {
 	}
 	if resp.Data.PoolSize != 2 {
 		t.Fatalf("poolSize: got %d, want 2", resp.Data.PoolSize)
+	}
+}
+
+func TestHandler_HealthzReturnsOK(t *testing.T) {
+	fake := &fakeScenario{name: "basic"}
+	engine, _ := newTestEngine(t, fake, nil)
+
+	rec := httptest.NewRecorder()
+	engine.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("/healthz: got %d, want 200", rec.Code)
+	}
+	var resp struct {
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Status != "ok" {
+		t.Fatalf("/healthz status: got %q, want ok", resp.Status)
+	}
+}
+
+// newTestEngine registers /healthz alongside the other routes so the
+// healthz test works against the same wiring the real server uses.
+
+func TestHandler_StatusIncludesBuildInfo(t *testing.T) {
+	fake := &fakeScenario{name: "basic"}
+	engine, _ := newTestEngine(t, fake, nil)
+
+	rec := httptest.NewRecorder()
+	engine.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/status", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("/status: got %d", rec.Code)
+	}
+	var resp struct {
+		Data struct {
+			Build struct {
+				Version   string `json:"version"`
+				Commit    string `json:"commit"`
+				BuildDate string `json:"buildDate"`
+			} `json:"build"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	// Defaults in version/version.go are "dev" / "unknown" / "unknown".
+	// Tests build via plain `go test` so ldflags aren't injected, hence
+	// the defaults survive — assertions match the unflagged baseline.
+	if resp.Data.Build.Version == "" {
+		t.Fatalf("Build.Version is empty; want non-empty default")
+	}
+	if resp.Data.Build.Commit == "" {
+		t.Fatalf("Build.Commit is empty; want non-empty default")
+	}
+	if resp.Data.Build.BuildDate == "" {
+		t.Fatalf("Build.BuildDate is empty; want non-empty default")
 	}
 }
 

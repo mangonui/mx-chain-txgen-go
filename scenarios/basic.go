@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	coreData "github.com/multiversx/mx-chain-core-go/data/transaction"
-
 	"github.com/mangonui/mx-chain-txgen-go/submit"
 )
 
@@ -54,17 +52,7 @@ func (b *BasicScenario) Run(ctx context.Context, req Request, comp *Components) 
 			}
 		}
 		nonce := comp.Nonces.Next(sender.Bech32)
-		tx := &coreData.FrontendTransaction{
-			Nonce:    nonce,
-			Value:    req.Value,
-			Sender:   sender.Bech32,
-			Receiver: receiver.Bech32,
-			GasPrice: req.GasPrice,
-			GasLimit: req.GasLimit,
-			ChainID:  comp.NetConfig.ChainID,
-			Version:  req.Version,
-			Options:  req.Options,
-		}
+		tx := buildTx(req, comp, sender.Bech32, receiver.Bech32, nonce, req.Value, nil)
 		jobs = append(jobs, submit.Job{Sender: sender, Tx: tx})
 	}
 	hashes, err := comp.Submitter.SignAndSubmit(ctx, jobs)

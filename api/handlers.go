@@ -10,6 +10,7 @@ import (
 	"github.com/mangonui/mx-chain-txgen-go/scenarios"
 	"github.com/mangonui/mx-chain-txgen-go/shards"
 	"github.com/mangonui/mx-chain-txgen-go/stats"
+	"github.com/mangonui/mx-chain-txgen-go/version"
 )
 
 // reportWindows defines the rolling intervals exposed by GET /stats. The
@@ -122,8 +123,24 @@ func (h *handler) status(c *gin.Context) {
 		"data": gin.H{
 			"scenarios": h.registry.Names(),
 			"poolSize":  h.comp.Pool.Len(),
+			"build": gin.H{
+				"version":   version.Version,
+				"commit":    version.Commit,
+				"buildDate": version.BuildDate,
+			},
 		},
 		"code": "successful",
+	})
+}
+
+// healthz is a zero-dependency liveness probe. Returns 200 OK as long as
+// the process can serve HTTP. Deliberately does not check the proxy,
+// the pool, or the registry — a liveness probe that turns red on a
+// transient downstream failure produces restart-spiral noise without
+// improving observability. Use /status for readiness-style checks.
+func (h *handler) healthz(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"status": "ok",
 	})
 }
 

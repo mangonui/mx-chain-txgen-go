@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"math/big"
 
-	coreData "github.com/multiversx/mx-chain-core-go/data/transaction"
-
 	"github.com/mangonui/mx-chain-txgen-go/submit"
 )
 
@@ -80,18 +78,8 @@ func (e *ESDTScenario) issue(ctx context.Context, req Request, comp *Components)
 			return nil, err
 		}
 	}
-	tx := &coreData.FrontendTransaction{
-		Nonce:    comp.Nonces.Next(issuer.Bech32),
-		Value:    issuanceCostEGLD,
-		Sender:   issuer.Bech32,
-		Receiver: esdtSystemSCAddress,
-		GasPrice: req.GasPrice,
-		GasLimit: req.GasLimit,
-		Data:     []byte(data),
-		ChainID:  comp.NetConfig.ChainID,
-		Version:  req.Version,
-		Options:  req.Options,
-	}
+	tx := buildTx(req, comp, issuer.Bech32, esdtSystemSCAddress,
+		comp.Nonces.Next(issuer.Bech32), issuanceCostEGLD, []byte(data))
 	hashes, err := comp.Submitter.SignAndSubmit(ctx, []submit.Job{{Sender: issuer, Tx: tx}})
 	if err != nil {
 		return nil, err
@@ -146,18 +134,8 @@ func (e *ESDTScenario) mint(ctx context.Context, req Request, comp *Components) 
 			HexString(tokenID),
 			HexBigInt(mintAmount),
 		)
-		tx := &coreData.FrontendTransaction{
-			Nonce:    comp.Nonces.Next(issuer.Bech32),
-			Value:    "0",
-			Sender:   issuer.Bech32,
-			Receiver: acc.Bech32,
-			GasPrice: req.GasPrice,
-			GasLimit: req.GasLimit,
-			Data:     []byte(data),
-			ChainID:  comp.NetConfig.ChainID,
-			Version:  req.Version,
-			Options:  req.Options,
-		}
+		tx := buildTx(req, comp, issuer.Bech32, acc.Bech32,
+			comp.Nonces.Next(issuer.Bech32), "0", []byte(data))
 		jobs = append(jobs, submit.Job{Sender: issuer, Tx: tx})
 	}
 	hashes, err := comp.Submitter.SignAndSubmit(ctx, jobs)
@@ -204,18 +182,8 @@ func (e *ESDTScenario) transfer(ctx context.Context, req Request, comp *Componen
 			HexString(tokenID),
 			HexBigInt(xferAmount),
 		)
-		tx := &coreData.FrontendTransaction{
-			Nonce:    comp.Nonces.Next(sender.Bech32),
-			Value:    "0",
-			Sender:   sender.Bech32,
-			Receiver: receiver.Bech32,
-			GasPrice: req.GasPrice,
-			GasLimit: req.GasLimit,
-			Data:     []byte(data),
-			ChainID:  comp.NetConfig.ChainID,
-			Version:  req.Version,
-			Options:  req.Options,
-		}
+		tx := buildTx(req, comp, sender.Bech32, receiver.Bech32,
+			comp.Nonces.Next(sender.Bech32), "0", []byte(data))
 		jobs = append(jobs, submit.Job{Sender: sender, Tx: tx})
 	}
 	hashes, err := comp.Submitter.SignAndSubmit(ctx, jobs)
