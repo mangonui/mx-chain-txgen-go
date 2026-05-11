@@ -2,18 +2,31 @@ package api
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/mangonui/mx-chain-txgen-go/scenarios"
 	"github.com/mangonui/mx-chain-txgen-go/shards"
+	"github.com/mangonui/mx-chain-txgen-go/stats"
 )
 
+// reportWindows defines the rolling intervals exposed by GET /stats. The
+// names land verbatim in the JSON response, so changing them is a
+// user-visible contract change.
+var reportWindows = []stats.Window{
+	{Name: "1m", Duration: time.Minute},
+	{Name: "5m", Duration: 5 * time.Minute},
+	{Name: "1h", Duration: time.Hour},
+}
+
 // handler is the per-request adapter from the gin context to the scenario
-// registry. Stateless apart from the captured components and registry.
+// registry. Stateless apart from the captured components, registry, and
+// optional stats sampler.
 type handler struct {
 	registry *scenarios.Registry
 	comp     *scenarios.Components
+	sampler  *stats.Sampler
 }
 
 func (h *handler) sendMultiple(c *gin.Context) {
@@ -61,6 +74,10 @@ func (h *handler) sendMultiple(c *gin.Context) {
 		return
 	}
 
+	if h.sampler != nil {
+		h.sampler.Record(req.Scenario, result.NumSent)
+	}
+
 	hashesMap := make(map[int]string, len(result.Hashes))
 	for i, h := range result.Hashes {
 		hashesMap[i] = h
@@ -82,6 +99,30 @@ func (h *handler) status(c *gin.Context) {
 		"data": gin.H{
 			"scenarios": h.registry.Names(),
 			"poolSize":  h.comp.Pool.Len(),
+		},
+		"code": "successful",
+	})
+}
+
+// stats returns the rolled-up submitted-TPS report. When the sampler is
+// nil (txgen launched with Stats.EnableTPSSampler=false), the windows
+// array is returned empty so clients can still distinguish "disabled"
+// from "no traffic".
+func (h *handler) stats(c *gin.Context) {
+	if h.sampler == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"data": gin.H{
+				"enabled": false,
+				"windows": []any{},
+			},
+			"code": "successful",
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"data": gin.H{
+			"enabled": true,
+			"windows": h.sampler.Report(reportWindows),
 		},
 		"code": "successful",
 	})

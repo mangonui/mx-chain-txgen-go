@@ -11,6 +11,7 @@ import (
 
 	"github.com/mangonui/mx-chain-txgen-go/config"
 	"github.com/mangonui/mx-chain-txgen-go/scenarios"
+	"github.com/mangonui/mx-chain-txgen-go/stats"
 )
 
 // Server is the txgen's HTTP listener. Mounts the upstream-compatible
@@ -22,15 +23,18 @@ type Server struct {
 }
 
 // New constructs a server bound to the given port with the scenario
-// registry and shared component bundle wired in.
-func New(cfg config.ServerConfig, registry *scenarios.Registry, comp *scenarios.Components) *Server {
+// registry, shared component bundle, and (optionally) a stats sampler
+// wired in. Sampler may be nil — when nil, /stats returns an empty
+// report and sendMultiple skips recording.
+func New(cfg config.ServerConfig, registry *scenarios.Registry, comp *scenarios.Components, sampler *stats.Sampler) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	engine := gin.New()
 	engine.Use(gin.Recovery())
 
-	h := &handler{registry: registry, comp: comp}
+	h := &handler{registry: registry, comp: comp, sampler: sampler}
 	engine.POST("/transaction/send-multiple", h.sendMultiple)
 	engine.GET("/status", h.status)
+	engine.GET("/stats", h.stats)
 
 	addr := ":" + strconv.Itoa(cfg.Port)
 	srv := &http.Server{

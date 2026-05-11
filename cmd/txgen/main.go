@@ -9,6 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"time"
+
 	"github.com/mangonui/mx-chain-txgen-go/accounts"
 	"github.com/mangonui/mx-chain-txgen-go/api"
 	"github.com/mangonui/mx-chain-txgen-go/config"
@@ -16,6 +18,7 @@ import (
 	"github.com/mangonui/mx-chain-txgen-go/proxy"
 	"github.com/mangonui/mx-chain-txgen-go/scenarios"
 	"github.com/mangonui/mx-chain-txgen-go/shards"
+	"github.com/mangonui/mx-chain-txgen-go/stats"
 	"github.com/mangonui/mx-chain-txgen-go/submit"
 )
 
@@ -145,7 +148,16 @@ func runServer(cfg *config.Config) error {
 	}
 	log.Printf("scenarios enabled: %v", registry.Names())
 
-	srv := api.New(cfg.Server, registry, comp)
+	// The sampler retains entries for the longest reporting window the
+	// /stats endpoint exposes (1h). Disabled via config returns a nil
+	// sampler which the handler interprets as "skip recording".
+	var sampler *stats.Sampler
+	if cfg.Stats.EnableTPSSampler {
+		sampler = stats.New(time.Hour)
+		log.Printf("stats: sampler enabled, retaining 1h window")
+	}
+
+	srv := api.New(cfg.Server, registry, comp, sampler)
 	log.Printf("listening on :%d", cfg.Server.Port)
 	return srv.Start(ctx)
 }

@@ -64,7 +64,7 @@ unchanged.
 
 ## HTTP contract
 
-`POST http://localhost:7951/transaction/send-multiple`
+### `POST /transaction/send-multiple` — drive load
 
 Body:
 
@@ -103,6 +103,47 @@ Response:
   "code": "successful"
 }
 ```
+
+### `GET /status` — diagnostic info
+
+Returns the enabled scenarios and the current account-pool size.
+
+### `GET /stats` — rolling submitted-TPS report
+
+When `Stats.EnableTPSSampler = true`, every successful
+`/transaction/send-multiple` response increments a per-scenario counter
+in an in-memory ring. `/stats` returns the rolled-up TPS over `1m`,
+`5m`, and `1h` rolling windows:
+
+```json
+{
+  "data": {
+    "enabled": true,
+    "windows": [
+      {
+        "window": "1m",
+        "windowSeconds": 60,
+        "totalTxs": 1500,
+        "overallTPS": 25.0,
+        "perScenarioTxs": { "basic": 1200, "esdt": 300 },
+        "perScenarioTPS": { "basic": 20.0, "esdt": 5.0 }
+      },
+      { "window": "5m", "...": "..." },
+      { "window": "1h", "...": "..." }
+    ]
+  },
+  "code": "successful"
+}
+```
+
+When the sampler is disabled, `data.enabled` is `false` and `data.windows`
+is empty.
+
+**This is *submitted* TPS — what the txgen pushed at the proxy, not what
+the chain included in a block.** Honest *included* TPS requires polling
+`/network/status/{shard}` and tracking per-shard tx counts on the chain
+side; that path is a planned follow-up. Until then, included-TPS must be
+read directly off the proxy/explorer.
 
 ## Scenario sub-commands
 
