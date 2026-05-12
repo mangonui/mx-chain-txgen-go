@@ -122,8 +122,8 @@ github.com/mangonui/mx-chain-core-go v0.0.0-20260512153159-d696dc43bf6d h1:Gqusv
 github.com/mangonui/mx-chain-core-go v0.0.0-20260512153159-d696dc43bf6d/go.mod h1:nx8HPC1fvHcXGXNAUQaMXNQWSMgSWcqST+Od76tuCeI=
 github.com/mangonui/mx-chain-crypto-go v0.0.0-20260512042020-64e96976729c h1:iZ0isFJXct6GWqkuNvh163F54bAYMRP5R4VQEhI7vYQ=
 github.com/mangonui/mx-chain-crypto-go v0.0.0-20260512042020-64e96976729c/go.mod h1:mpGL2/M1vnYJQ3nmsxKZQtDb0C3D4YioEPsk1hns7V0=
-github.com/mangonui/mx-chain-go v0.0.0-20260512054937-57f4dadcc488 h1:z/RO6tpSln2aZBA30tnusBKeR6U/oZsbueecnJJNClQ=
-github.com/mangonui/mx-chain-go v0.0.0-20260512054937-57f4dadcc488/go.mod h1:7U9c61vdFzJviyRYLM4o0pIM60WYIIDBDBIueDx83bc=
+github.com/mangonui/mx-chain-go v0.0.0-20260512181101-799b28cc7c2e h1:toKTJu4gZdzPA4jvFCRV2tXo+6rgYSSxo3wrHe+SRSY=
+github.com/mangonui/mx-chain-go v0.0.0-20260512181101-799b28cc7c2e/go.mod h1:/Ch1PJ4w7C0J1kM3mrObh/bxA/W7LiZjH42qYFBGhUU=
 github.com/mangonui/mx-chain-logger-go v0.0.0-20260512025801-4b00900c17b0 h1:Ied0nniRSsS1SVRQW7zieTFQn4lJBUgMH+P3Bsi81ok=
 github.com/mangonui/mx-chain-logger-go v0.0.0-20260512025801-4b00900c17b0/go.mod h1:ftcx53HVN/wZt/GbuE34dA0psb4jwvA3llIeM/5u9FM=
 github.com/mangonui/mx-chain-storage-go v0.0.0-20260512042020-b4fbd05cabe1 h1:Bd/ErJvtRpLK+NDo4KMFA7HuYLqct4ySqMHZXzVT8Mc=
