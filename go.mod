@@ -69,7 +69,7 @@ require (
 
 replace github.com/multiversx/mx-chain-core-go => github.com/mangonui/mx-chain-core-go v0.0.0-20260514035830-0e3a1d482b18
 
-replace github.com/multiversx/mx-chain-go => github.com/mangonui/mx-chain-go v0.0.0-20260521053348-4239ca3f4078
+replace github.com/multiversx/mx-chain-go => github.com/mangonui/mx-chain-go v0.0.0-20260521054523-8b1901b18b47
 
 replace github.com/multiversx/mx-chain-crypto-go => github.com/mangonui/mx-chain-crypto-go v0.0.0-20260521050229-0071ade87e85
 
@@ -85,7 +85,7 @@ replace github.com/multiversx/mx-chain-communication-go => github.com/mangonui/m
 
 replace github.com/multiversx/mx-chain-vm-go => github.com/mangonui/mx-chain-vm-go v0.0.0-20260521050533-8997548b7f24
 
-replace github.com/multiversx/mx-chain-es-indexer-go => github.com/mangonui/mx-chain-es-indexer-go v0.0.0-20260521053219-36d761d6455b
+replace github.com/multiversx/mx-chain-es-indexer-go => github.com/mangonui/mx-chain-es-indexer-go v0.0.0-20260521054111-6d312e93ce19
 
 replace github.com/multiversx/mx-chain-vm-v1_2-go => github.com/mangonui/mx-chain-vm-v1_2-go v0.0.0-20260514040504-9320ef19765e
 
@@ -98,3 +98,5 @@ replace github.com/multiversx/mx-components-big-int => github.com/mangonui/mx-co
 replace github.com/multiversx/mx-sdk-go => github.com/mangonui/mx-sdk-go v0.0.0-20260512162209-703f18632b62
 
 replace github.com/herumi/bls-go-binary => github.com/mangonui/bls-go-binary v0.0.0-20250924002409-446538da6433
+
+replace github.com/multiversx/mx-chain-proxy-go => github.com/mangonui/mx-chain-proxy-go v0.0.0-20260521054522-bc31dd7c9e33
